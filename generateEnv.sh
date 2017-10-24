@@ -9,8 +9,10 @@
 ### dealt with. Learn to make these bearable in your text editor of choice :)
 
 ###############################################################################
-###                     +++  FLAGS - MODIFY AT OWN RISK  +++                ###
+###                   +++  FLAGS - MODIFY AT OWN RISK  +++                  ###
 ###############################################################################
+### Note that most of these flags will probably become argument options in  ###
+### the future!                                                             ###
 
 # Directory on remote machine for environment generation
 # Should end with directory name, and no '/'
@@ -34,9 +36,9 @@ LIB64_SP=$ENVDIR/lib64/python3.6/site-packages
 
 # Echo Colours/Prefixes
 H='\033[1;32m [REMOTE ENV]\033[0;35m' # Remote Host Message
-M='\033[1;33m [ENV]\033[0;35m'        # Regular Message (with prefix)
+M='\033[1;33m [LOCAL  ENV]\033[0;35m' # Regular Message (with prefix)
 MN='\033[0;35m'                       # Regular Message (no prefix)
-E='\033[1;31m [ENV] ERROR:\033[0;31m' # Error Message (with prefix)
+E='\033[1;31m [  ERROR  ]\033[0;31m'  # Error Message (with prefix)
 EN='\033[1;31m'                       # Error Message (no prefix)
 R='\033[0m'                           # Reset Colour (end of message)
 
@@ -61,11 +63,11 @@ function setRemote() {
 		fi
 		echo -e "$H Installed $PYTHON_PKG, continuing...$R"
 	fi
-	
+
 	# Set up virtualenv
 	echo -e "$H Creating fresh new virtualenv...$R"
 	virtualenv -q --python=$PYTHON_ENV $ENVDIR
-	
+
 	# Check set up correctly and activate virtualenv
 	if [ ! $? -eq 0 ]; then
 		echo -e "$E virtualenv exited with non 0 status code whilst initialising env$R" >&2
@@ -73,7 +75,7 @@ function setRemote() {
 	fi
 	cd $ENVDIR
 	source ./bin/activate
-	
+
 	# Install user provided pip packages
 	if [ ! -f $SCPDIR/$DEP ]; then
 		if [ ! -r $SCPDIR/$DEP ]; then
@@ -87,7 +89,7 @@ function setRemote() {
 		exit 1
 	fi
 	rm -rf $SCRPDIR/$DEP
-	
+
 	# ZIP up all the files
 	cd $LIB_SP
 	echo -e "$H Adding site-packages from lib to environment.zip...$R"
@@ -103,7 +105,7 @@ function setRemote() {
 	if [ ! $? -eq 0 ]; then
 		echo -e "$E zip exited with non 0 status code whilst compressing lib64's sitepackages$R" >&2
 		exit 1
-	fi		
+	fi
 
 	cd $SCPDIR
 	echo -e "$H Adding user provided files to environment.zip...$R"
@@ -111,7 +113,7 @@ function setRemote() {
 	if [ ! $? -eq 0 ]; then
 		echo -e "$E zip exited with non 0 status code whilst compressing user provided files$R" >&2
 		exit 1
-	fi		
+	fi
 
 	deactivate
 	echo -e "$H Complete! environment.zip has been created succesfully$R"
@@ -134,30 +136,34 @@ function main {
 	# Extract dependencies file name
 	DEP=$(basename $DEP_LOC)
 
-	# Set up the remost job variables
+	# Check if SSH identiy file was given, append necesary flag
+	if [ -z ${var+x} ]; then
+		SSH_IDENTITY="-i $SSH_IDENTITY"
+	fi
+
+	# Set up the remote job variables
 	setRemote
 
 	# Create Remote SCP endpoint
 	echo -e "$M Creating folder on remote host for user files...$R"
-	ssh -o LogLevel=QUIET -i $SSH_IDENTITY $SSH_TARGET -t "mkdir $SCPDIR"
+	ssh -o LogLevel=QUIET $SSH_IDENTITY $SSH_TARGET -t "mkdir $SCPDIR"
 
 	# SCP over user defined files
 	echo -e "$M Uploading user files...$R"
-	scp -q -i $SSH_IDENTITY $USER_FOLDER* $SSH_TARGET:$SCPDIR
-	scp -q -i $SSH_IDENTITY $DEP          $SSH_TARGET:$SCPDIR
+	scp -q $SSH_IDENTITY $USER_FOLDER* $SSH_TARGET:$SCPDIR
+	scp -q $SSH_IDENTITY $DEP_LOC      $SSH_TARGET:$SCPDIR
 
 	# Run Job
-	ssh -o LogLevel=QUIET -i $SSH_IDENTITY $SSH_TARGET -t "$REMOTERUN"
+	ssh -o LogLevel=QUIET $SSH_IDENTITY $SSH_TARGET -t "$REMOTERUN"
 
 	# Collect resulting envrionment.zip
-	echo -e "$M Downloading resulting envrionment.zip to ./ ...$R"
-	scp -q -i $SSH_IDENTITY $SSH_TARGET:$ENVDIR/environment.zip ./
+	echo -e "$M Downloading resulting envrionment.zip to ./$R"
+	scp -q $SSH_IDENTITY $SSH_TARGET:$ENVDIR/environment.zip ./
 
 	# Cleanup
-	ssh -o LogLevel=QUIET -i $SSH_IDENTITY $SSH_TARGET -t "$REMOTECLEAN"
+	ssh -o LogLevel=QUIET $SSH_IDENTITY $SSH_TARGET -t "$REMOTECLEAN"
 
-	echo
-	echo -e "$M Completed! Check for any errors however it looks like it's fine!$R"
+	echo -e "$M \033[1;32mCompleted!\033[0;35m Check for any errors however it looks like it's fine!$R"
 	exit 0
 }
 
@@ -182,6 +188,7 @@ function printHelp {
 	echo "  -d DEPENDENCIES --dependencies  Location of file with pip depenedencies"
 	echo "  -F FOLDER       --folder        Path of folder containing user files to"
 	echo "                                  add to environment"
+	echo "  -I IDENTIY      --identity      Path to SSH identity file for access"
 	echo "  -h              --help          Shows this print out"
 	echo -e "$R"
 }
@@ -200,6 +207,11 @@ if [ $# -ge 5 ]; then
 				USER_FOLDER=$1
 				shift
 				;;
+			-I|--identity)
+			    shift
+			    SSH_IDENTITY=$1
+			    shift
+			    ;;
 			-h|--help)
 				help
 				exit 0
@@ -211,14 +223,18 @@ if [ $# -ge 5 ]; then
 		esac
 	done
 	SSH_TARGET=$1
-	SSH_IDENTITY=~/.ssh/UltraHorizon/APIMobile
 	main
 else
+	while [ $# -gt 0 ]; do
+        if [ "$1" == "--help" -o "$1" == "-h" ]; then
+            printHelp
+            exit 0
+        else
+            shift
+        fi
+	done
 	echo -e "$E Not enough arguments given.. Did you provide an IP address?"
-        echo -e "$E Stopping.$R" >&2
-	printHelp 
+    echo -e "$E Stopping.$R" >&2
+	printHelp
 	exit 1
 fi
-
-
-
