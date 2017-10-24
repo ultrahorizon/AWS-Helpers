@@ -226,15 +226,15 @@ if [ $# -ge 5 ]; then
 	main
 else
 	while [ $# -gt 0 ]; do
-        if [ "$1" == "--help" -o "$1" == "-h" ]; then
-            printHelp
-            exit 0
-        else
-            shift
-        fi
+		if [ "$1" == "--help" -o "$1" == "-h" ]; then
+			printHelp
+			exit 0
+		else
+			shift
+		fi
 	done
 	echo -e "$E Not enough arguments given.. Did you provide an IP address?"
-    echo -e "$E Stopping.$R" >&2
+	echo -e "$E Stopping.$R" >&2
 	printHelp
 	exit 1
 fi
