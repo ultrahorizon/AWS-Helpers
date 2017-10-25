@@ -14,6 +14,9 @@
 ### Note that most of these flags will probably become argument options in  ###
 ### the future!                                                             ###
 
+# Hard Coded SSH Identity File location
+#SSH_IDENTITY=~/.ssh/keyfile
+
 # Directory on remote machine for environment generation
 # Should end with directory name, and no '/'
 ENVDIR=/tmp/createEnv.$$
@@ -137,9 +140,12 @@ function main {
 	DEP=$(basename $DEP_LOC)
 
 	# Check if SSH identiy file was given, append necesary flag
-	if [ -z ${var+x} ]; then
+	echo "SSH: $SSH_IDENTITY"
+	if [ ! -z ${SSH_IDENTITY+x} ]; then
 		SSH_IDENTITY="-i $SSH_IDENTITY"
 	fi
+	echo "SSH: $SSH_IDENTITY"
+	exit 0
 
 	# Set up the remote job variables
 	setRemote
