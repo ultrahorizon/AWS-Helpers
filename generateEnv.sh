@@ -140,12 +140,10 @@ function main {
 	DEP=$(basename $DEP_LOC)
 
 	# Check if SSH identiy file was given, append necesary flag
-	echo "SSH: $SSH_IDENTITY"
+	echo "$M Using SSH Identity: $SSH_IDENTITY"
 	if [ ! -z ${SSH_IDENTITY+x} ]; then
 		SSH_IDENTITY="-i $SSH_IDENTITY"
 	fi
-	echo "SSH: $SSH_IDENTITY"
-	exit 0
 
 	# Set up the remote job variables
 	setRemote
